@@ -1,7 +1,13 @@
 import torch
 import taichi as ti
 from taichi.math import vec3, pi, vec4, vec2
-        
+
+"""
+This is another version without the gradient of time and the input time only have one dimension
+
+Comment out # time = torch.tensor(time).to(means3D.device).repeat(means3D.shape[0],1)
+when use it.
+"""
 class Fourier(torch.nn.Module):
     def __init__(self, max_degree, Hz_base_factor=1):
         super(Fourier,self).__init__()
@@ -15,10 +21,9 @@ class Fourier(torch.nn.Module):
             out: ti.types.ndarray(), 
             degree: int
         ):
-            for pid, dim_id, f_id in ti.ndrange(
+            for pid, dim_id in ti.ndrange(
                 factors.shape[0], 
                 factors.shape[2],
-                # max_degree
             ):
                 out_sum = 0.
                 for f_id in ti.static(range(max_degree)):
@@ -26,7 +31,7 @@ class Fourier(torch.nn.Module):
                         fac_vec = factors[pid, f_id, dim_id]
                         # noise_vec = noise[pid, dim_id, f_id]
                         current_w = (f_id) * 2 * Hz_base * t
-                        x = current_w #* fac_vec[2] + fac_vec[3]
+                        x = current_w 
                         sin = fac_vec[0] * ti.sin(x)
                         cos = fac_vec[1] * ti.cos(x)
                         out_sum += sin + cos
@@ -54,8 +59,7 @@ class Fourier(torch.nn.Module):
                     # fac_vec = factors[pid, f_id, dim_id]
                     current_w = (f_id) * 2 * Hz_base * t
                     d_o = d_out[pid, dim_id]
-                    # noise_vec = noise[pid, dim_id, f_id]
-                    x = current_w #* fac_vec[2] + fac_vec[3]
+                    x = current_w 
                     d_factors[pid, f_id, dim_id, 0] = d_o*ti.sin(x)
                     d_factors[pid, f_id, dim_id, 1] = d_o*ti.cos(x)
                     # sin_df = fac_vec[0] * ti.cos(x)

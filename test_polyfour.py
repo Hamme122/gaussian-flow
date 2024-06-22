@@ -17,7 +17,7 @@ def test_dddm_model():
     args = Args(no_dx=False, no_ds=False, no_dr=False, no_do=False, no_dshs=True)
     model = DDDMModel(type_name="poly_fourier", feat_dim=32, poly_factor=1.0, Hz_factor=1.0, args=args)
 
-    batch_size = 3200
+    batch_size = 320000
     feat_dim = 16
     output_dim = 14
 
@@ -37,7 +37,7 @@ def test_dddm_model():
     optimizer = torch.optim.Adam([dddmpara], lr=0.001)
     target = torch.zeros(batch_size, output_dim-3).cuda()
 
-    num_epochs = 4000
+    num_epochs = 400
     for epoch in range(num_epochs):
 
         output = model.forward(means3D, scales, rotations, opacity, shs, time, dddmpara, feat_dim)
