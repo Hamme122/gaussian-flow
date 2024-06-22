@@ -8,6 +8,7 @@
 #
 # For inquiries contact  george.drettakis@inria.fr
 #
+
 import numpy as np
 import random
 import os, sys
@@ -79,7 +80,7 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
         # dnerf's branch
         viewpoint_stack = [i for i in train_cams]
         temp_list = copy.deepcopy(viewpoint_stack)
-    # 
+    
     batch_size = opt.batch_size
     print("data loading done")
     if opt.dataloader:
@@ -93,7 +94,6 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
             random_loader = True
         loader = iter(viewpoint_stack_loader)
     
-    
     # dynerf, zerostamp_init
     # breakpoint()
     if stage == "coarse" and opt.zerostamp_init:
@@ -103,7 +103,7 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
         viewpoint_stack = temp_list.copy()
     else:
         load_in_memory = False 
-                            # 
+                            
     count = 0
     for iteration in range(first_iter, final_iter+1):        
         if network_gui.conn == None:
@@ -119,10 +119,9 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
                         viewpoint_index = viewpoint_index
                     else:
                         viewpoint_index = len(video_cams) - viewpoint_index - 1
-                    # print(viewpoint_index)
+
                     viewpoint = video_cams[viewpoint_index]
                     custom_cam.time = viewpoint.time
-                    # print(custom_cam.time, viewpoint_index, count)
                     net_image = render(custom_cam, gaussians, pipe, background, scaling_modifer, stage=stage, cam_type=scene.dataset_type)["render"]
 
                     net_image_bytes = memoryview((torch.clamp(net_image, min=0, max=1.0) * 255).byte().permute(1, 2, 0).contiguous().cpu().numpy())
@@ -142,7 +141,6 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
             gaussians.oneupSHdegree()
 
         # Pick a random Camera
-
         # dynerf's branch
         if opt.dataloader and not load_in_memory:
             try:
@@ -167,8 +165,7 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
                 idx +=1
             if len(viewpoint_cams) == 0:
                 continue
-        # print(len(viewpoint_cams))     
-        # breakpoint()   
+
         # Render
         if (iteration - 1) == debug_from:
             pipe.debug = True
@@ -190,20 +187,18 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
             radii_list.append(radii.unsqueeze(0))
             visibility_filter_list.append(visibility_filter.unsqueeze(0))
             viewspace_point_tensor_list.append(viewspace_point_tensor)
-        
 
         radii = torch.cat(radii_list,0).max(dim=0).values
         visibility_filter = torch.cat(visibility_filter_list).any(dim=0)
         image_tensor = torch.cat(images,0)
         gt_image_tensor = torch.cat(gt_images,0)
+        
         # Loss
-        # breakpoint()
         Ll1 = l1_loss(image_tensor, gt_image_tensor[:,:3,:,:])
 
         psnr_ = psnr(image_tensor, gt_image_tensor).mean().double()
         # norm
-        
-
+    
         loss = Ll1
         if stage == "fine" and hyper.time_smoothness_weight != 0:
             # tv_loss = 0
@@ -248,7 +243,7 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
                 if (iteration < 1000 and iteration % 10 == 9) \
                     or (iteration < 3000 and iteration % 50 == 49) \
                         or (iteration < 60000 and iteration %  100 == 99) :
-                    # breakpoint()
+
                         render_training_image(scene, gaussians, [test_cams[iteration%len(test_cams)]], render, pipe, background, stage+"test", iteration,timer.get_elapsed_time(),scene.dataset_type)
                         render_training_image(scene, gaussians, [train_cams[iteration%len(train_cams)]], render, pipe, background, stage+"train", iteration,timer.get_elapsed_time(),scene.dataset_type)
                         # render_training_image(scene, gaussians, train_cams, render, pipe, background, stage+"train", iteration,timer.get_elapsed_time(),scene.dataset_type)
@@ -282,9 +277,7 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
                     # torch.cuda.empty_cache()
                 if iteration % opt.opacity_reset_interval == 0:
                     print("reset opacity")
-                    gaussians.reset_opacity()
-                    
-            
+                    gaussians.reset_opacity()               
 
             # Optimizer step
             if iteration < opt.iterations:
@@ -295,7 +288,7 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
                 print("\n[ITER {}] Saving Checkpoint".format(iteration))
                 torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" +f"_{stage}_" + str(iteration) + ".pth")
 def training(dataset, hyper, opt, pipe, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint, debug_from, expname):
-    # first_iter = 0
+
     tb_writer = prepare_output_and_logger(expname)
     gaussians = GaussianModel(dataset.sh_degree, hyper)
     dataset.model_path = args.model_path
@@ -311,13 +304,9 @@ def training(dataset, hyper, opt, pipe, testing_iterations, saving_iterations, c
 
 def prepare_output_and_logger(expname):    
     if not args.model_path:
-        # if os.getenv('OAR_JOB_ID'):
-        #     unique_str=os.getenv('OAR_JOB_ID')
-        # else:
-        #     unique_str = str(uuid.uuid4())
         unique_str = expname
-
         args.model_path = os.path.join("./output/", unique_str)
+
     # Set up output folder
     print("Output folder: {}".format(args.model_path))
     os.makedirs(args.model_path, exist_ok = True)
@@ -337,7 +326,6 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
         tb_writer.add_scalar(f'{stage}/train_loss_patches/l1_loss', Ll1.item(), iteration)
         tb_writer.add_scalar(f'{stage}/train_loss_patchestotal_loss', loss.item(), iteration)
         tb_writer.add_scalar(f'{stage}/iter_time', elapsed, iteration)
-        
     
     # Report test and samples of training set
     if iteration in testing_iterations:
@@ -383,12 +371,14 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
             tb_writer.add_histogram(f"{stage}/scene/motion_histogram", scene.gaussians._deformation_accum.mean(dim=-1)/100, iteration,max_bins=500)
         
         torch.cuda.empty_cache()
+
 def setup_seed(seed):
      torch.manual_seed(seed)
      torch.cuda.manual_seed_all(seed)
      np.random.seed(seed)
      random.seed(seed)
      torch.backends.cudnn.deterministic = True
+     
 if __name__ == "__main__":
     # Set up command line argument parser
     # torch.set_default_tensor_type('torch.FloatTensor')
