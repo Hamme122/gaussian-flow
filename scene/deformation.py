@@ -3,7 +3,6 @@ import math
 import os
 import time
 from tkinter import W
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -13,6 +12,7 @@ from utils.graphics_utils import apply_rotation, batch_quaternion_multiply
 from scene.hexplane import HexPlaneField
 from scene.grid import DenseGrid
 # from scene.grid import HashHexPlane
+
 class Deformation(nn.Module):
     def __init__(self, D=8, W=256, input_ch=27, input_ch_time=9, grid_pe=0, skips=[], args=None):
         super(Deformation, self).__init__()
@@ -24,7 +24,6 @@ class Deformation(nn.Module):
         self.grid_pe = grid_pe
         self.no_grid = args.no_grid
         self.grid = HexPlaneField(args.bounds, args.kplanes_config, args.multires)
-        # breakpoint()
         self.args = args
         # self.args.empty_voxel=True
         if self.args.empty_voxel:
@@ -34,6 +33,7 @@ class Deformation(nn.Module):
         
         self.ratio=0
         self.create_net()
+
     @property
     def get_aabb(self):
         return self.grid.get_aabb
@@ -45,7 +45,6 @@ class Deformation(nn.Module):
     def create_net(self):
         mlp_out_dim = 0
         if self.grid_pe !=0:
-            
             grid_out_dim = self.grid.feat_dim+(self.grid.feat_dim)*2 
         else:
             grid_out_dim = self.grid.feat_dim
@@ -69,21 +68,19 @@ class Deformation(nn.Module):
         if self.no_grid:
             h = torch.cat([rays_pts_emb[:,:3],time_emb[:,:1]],-1)
         else:
-
             grid_feature = self.grid(rays_pts_emb[:,:3], time_emb[:,:1])
-            # breakpoint()
             if self.grid_pe > 1:
                 grid_feature = poc_fre(grid_feature,self.grid_pe)
             hidden = torch.cat([grid_feature],-1) 
         
-        
         hidden = self.feature_out(hidden)   
  
-
         return hidden
+
     @property
     def get_empty_ratio(self):
         return self.ratio
+    
     def forward(self, rays_pts_emb, scales_emb=None, rotations_emb=None, opacity = None,shs_emb=None, time_feature=None, time_emb=None):
         if time_emb is None:
             return self.forward_static(rays_pts_emb[:,:3])
@@ -94,6 +91,7 @@ class Deformation(nn.Module):
         grid_feature = self.grid(rays_pts_emb[:,:3])
         dx = self.static_mlp(grid_feature)
         return rays_pts_emb[:, :3] + dx
+    
     def forward_dynamic(self,rays_pts_emb, scales_emb, rotations_emb, opacity_emb, shs_emb, time_feature, time_emb):
         hidden = self.query_time(rays_pts_emb, scales_emb, rotations_emb, time_feature, time_emb)
         if self.args.static_mlp:
@@ -102,7 +100,7 @@ class Deformation(nn.Module):
             mask = self.empty_voxel(rays_pts_emb[:,:3])
         else:
             mask = torch.ones_like(opacity_emb[:,0]).unsqueeze(-1)
-        # breakpoint()
+
         if self.args.no_dx:
             pts = rays_pts_emb[:,:3]
         else:
@@ -140,24 +138,25 @@ class Deformation(nn.Module):
             shs = shs_emb
         else:
             dshs = self.shs_deform(hidden).reshape([shs_emb.shape[0],16,3])
-
             shs = torch.zeros_like(shs_emb)
-            # breakpoint()
             shs = shs_emb*mask.unsqueeze(-1) + dshs
 
         return pts, scales, rotations, opacity, shs
+   
     def get_mlp_parameters(self):
         parameter_list = []
         for name, param in self.named_parameters():
             if  "grid" not in name:
                 parameter_list.append(param)
         return parameter_list
+    
     def get_grid_parameters(self):
         parameter_list = []
         for name, param in self.named_parameters():
             if  "grid" in name:
                 parameter_list.append(param)
         return parameter_list
+
 class deform_network(nn.Module):
     def __init__(self, args) :
         super(deform_network, self).__init__()
@@ -180,14 +179,13 @@ class deform_network(nn.Module):
         self.register_buffer('rotation_scaling_poc', torch.FloatTensor([(2**i) for i in range(scale_rotation_pe)]))
         self.register_buffer('opacity_poc', torch.FloatTensor([(2**i) for i in range(opacity_pe)]))
         self.apply(initialize_weights)
-        # print(self)
 
     def forward(self, point, scales=None, rotations=None, opacity=None, shs=None, times_sel=None):
         return self.forward_dynamic(point, scales, rotations, opacity, shs, times_sel)
     @property
     def get_aabb(self):
-        
         return self.deformation_net.get_aabb
+    
     @property
     def get_empty_ratio(self):
         return self.deformation_net.get_empty_ratio

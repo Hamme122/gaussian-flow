@@ -43,9 +43,9 @@ class DDDMModel(torch.nn.Module):
         else:
             raise ValueError("Trajectory function not properly initialized")
         
-        return self.deformation_dynamic(means3D, scales, rotations, opacity, shs, time, delta)
+        return self.deformation_dynamic(means3D, scales, rotations, opacity, shs, delta)
 
-    def deformation_dynamic(self, means3D, scales, rotations, opacity, shs, time, delta):
+    def deformation_dynamic(self, means3D, scales, rotations, opacity, shs, delta):
         # Clone the inputs to avoid in-place modifications
         new_means3D = means3D.clone()
         new_scales = scales.clone()

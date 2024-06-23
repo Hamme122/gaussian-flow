@@ -144,8 +144,8 @@ class HexPlaneField(nn.Module):
             else:
                 self.feat_dim = gp[-1].shape[1]
             self.grids.append(gp)
-        # print(f"Initialized model grids: {self.grids}")
         print("feature_dim:",self.feat_dim)
+
     @property
     def get_aabb(self):
         return self.aabb[0], self.aabb[1]
@@ -170,7 +170,6 @@ class HexPlaneField(nn.Module):
             concat_features=self.concat_features, num_levels=None)
         if len(features) < 1:
             features = torch.zeros((0, 1)).to(features.device)
-
 
         return features
 

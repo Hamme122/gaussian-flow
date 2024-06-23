@@ -92,17 +92,20 @@ class ModelHiddenParams(ParamGroup):
                              'resolution': [64, 64, 64, 25]
                             }
         self.multires = [1, 2, 4, 8]
-        self.no_dx=False
         self.no_grid=False
-        self.no_ds=False
+        self.no_dx=False 
+        self.no_ds=True
         self.no_dr=False
         self.no_do=True
-        self.no_dshs=True
+        self.no_dshs=False
         self.empty_voxel=False
         self.grid_pe=0
         self.static_mlp=False
         self.apply_rotation=False
 
+        # For Gaussian-FLow
+        self.output_dim = 14 # xyz3, scale3, rot4, opa1, sh_d3
+        self.feat_dim = 16
         
         super().__init__(parser, "ModelHiddenParams")
         
@@ -123,6 +126,12 @@ class OptimizationParams(ParamGroup):
         self.grid_lr_init = 0.0016
         self.grid_lr_final = 0.00016
 
+        # For gaussian flow
+        self.position_lr_init = 4e-4
+        self.position_lr_decay = 8e-7
+        self.rotation_lr_init = 0.002
+        self.rotation_lr_decay = 4e-4
+        
         self.feature_lr = 0.0025
         self.opacity_lr = 0.05
         self.scaling_lr = 0.005

@@ -104,3 +104,7 @@ class PolyFourier(torch.nn.Module):
             timestamp.contiguous(),
             degree,
         ) / self.max_degree
+    
+
+
+    
