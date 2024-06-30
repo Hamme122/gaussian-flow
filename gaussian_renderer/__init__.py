@@ -82,9 +82,10 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         #means3D_final, scales_final, rotations_final, opacity_final, shs_final = pc._deformation(means3D, scales, 
         #                                                          rotations, opacity, shs,
         #                                                          time)
+        time_scaling = torch.clamp(torch.exp(pc._timescaling[:, 0]).view(-1, 1) * time + pc._timescaling[:, 1].view(-1, 1), min=0.01)
         means3D_final, scales_final, rotations_final, opacity_final, shs_final = pc.dddm_model(means3D, scales, 
                                                                  rotations, opacity, shs,
-                                                                 time, pc.dddmpara, pc.dddmpara.shape[1])
+                                                                 time_scaling, pc.dddmpara, pc.dddmpara.shape[1])
     else:
         raise NotImplementedError
 

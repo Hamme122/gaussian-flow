@@ -67,6 +67,7 @@ class GaussianModel:
         self._feat_dim = args.feat_dim
         self._output_dim = args.output_dim
         self.dddm_model = DDDMModel(type_name="poly_fourier", feat_dim = 32, poly_factor=1.0, Hz_factor=1.0, args = args)
+        self._timescaling = torch.empty(0)
 
     def capture(self):
         return (
@@ -92,8 +93,6 @@ class GaussianModel:
         self._xyz, 
         deform_state,
         self._deformation_table,
-        
-        # self.grid,
         self._features_dc, 
         self._features_rest,
         self._scaling, 
@@ -172,6 +171,8 @@ class GaussianModel:
         nn.init.uniform_(self.dddmpara, a=-1.0, b=1.0)
         # nn.init.xavier_uniform_(self.dddmpara)
         # nn.init.kaiming_normal_(self.dddmpara)
+        self._timescaling = nn.Parameter(torch.zeros((self.get_xyz.shape[0], 2), device='cuda', requires_grad=True))
+
 
 
     def training_setup(self, training_args):
@@ -189,7 +190,8 @@ class GaussianModel:
             {'params': [self._opacity], 'lr': training_args.opacity_lr, "name": "opacity"},
             {'params': [self._scaling], 'lr': training_args.scaling_lr, "name": "scaling"},
             {'params': [self._rotation], 'lr': training_args.rotation_lr, "name": "rotation"},
-            {'params': [self.dddmpara], 'lr': training_args.rotation_lr_init * self.spatial_lr_scale, "name": "dddm"}
+            {'params': [self.dddmpara], 'lr': training_args.rotation_lr_init * self.spatial_lr_scale, "name": "dddm"},
+            {'params': [self._timescaling], 'lr': training_args.timescale_lr, "name": "timescaling"}
         ]
 
         self.optimizer = torch.optim.Adam(l, lr=0.0, eps=1e-15)
@@ -354,6 +356,8 @@ class GaussianModel:
         self._scaling = optimizable_tensors["scaling"]
         self._rotation = optimizable_tensors["rotation"]
         self.dddmpara = optimizable_tensors["dddm"]
+        self._timescaling = optimizable_tensors["timescaling"]
+
         self._deformation_accum = self._deformation_accum[valid_points_mask]
         self.xyz_gradient_accum = self.xyz_gradient_accum[valid_points_mask]
         self._deformation_table = self._deformation_table[valid_points_mask]
@@ -383,7 +387,7 @@ class GaussianModel:
 
         return optimizable_tensors
 
-    def densification_postfix(self, new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation, new_deformation_table, new_dddmpara):
+    def densification_postfix(self, new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation, new_deformation_table, new_dddmpara, new_timesacling):
         d = {"xyz": new_xyz,
         "f_dc": new_features_dc,
         "f_rest": new_features_rest,
@@ -391,6 +395,7 @@ class GaussianModel:
         "scaling" : new_scaling,
         "rotation" : new_rotation,
         "dddm" : new_dddmpara,
+        "timescaling" : new_timesacling,
        }
 
         optimizable_tensors = self.cat_tensors_to_optimizer(d)
@@ -401,6 +406,7 @@ class GaussianModel:
         self._scaling = optimizable_tensors["scaling"]
         self._rotation = optimizable_tensors["rotation"]
         self.dddmpara = optimizable_tensors["dddm"]
+        self._timescaling = optimizable_tensors["timescaling"]
         
         self._deformation_table = torch.cat([self._deformation_table,new_deformation_table],-1)
         self.xyz_gradient_accum = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
@@ -421,6 +427,7 @@ class GaussianModel:
                                               torch.max(self.get_scaling, dim=1).values > self.percent_dense*scene_extent)
         if not selected_pts_mask.any():
             return
+        
         stds = self.get_scaling[selected_pts_mask].repeat(N,1)
         means =torch.zeros((stds.size(0), 3),device="cuda")
         samples = torch.normal(mean=means, std=stds)
@@ -433,7 +440,8 @@ class GaussianModel:
         new_opacity = self._opacity[selected_pts_mask].repeat(N,1)
         new_deformation_table = self._deformation_table[selected_pts_mask].repeat(N)
         new_dddmpara = self.dddmpara[selected_pts_mask].repeat(N,1,1,1)
-        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation, new_deformation_table,new_dddmpara)
+        new_timesacling = self._timescaling[selected_pts_mask].repeat(N,1)
+        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacity, new_scaling, new_rotation, new_deformation_table, new_dddmpara, new_timesacling)
 
         prune_filter = torch.cat((selected_pts_mask, torch.zeros(N * selected_pts_mask.sum(), device="cuda", dtype=bool)))
         self.prune_points(prune_filter)
@@ -452,8 +460,9 @@ class GaussianModel:
         new_rotation = self._rotation[selected_pts_mask]
         new_deformation_table = self._deformation_table[selected_pts_mask]
         new_dddmpara = self.dddmpara[selected_pts_mask]
+        new_timescaling = self._timescaling[selected_pts_mask]
 
-        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation, new_deformation_table, new_dddmpara)
+        self.densification_postfix(new_xyz, new_features_dc, new_features_rest, new_opacities, new_scaling, new_rotation, new_deformation_table, new_dddmpara, new_timescaling)
 
     @property
     def get_aabb(self):
@@ -546,6 +555,7 @@ class GaussianModel:
             os.makedirs(write_path,exist_ok=True)
             o3d.io.write_point_cloud(os.path.join(write_path,f"iteration_{stage}{iteration}.ply"),point)
         return
+   
     def prune(self, max_grad, min_opacity, extent, max_screen_size):
 
         prune_mask = (self.get_opacity < min_opacity).squeeze()

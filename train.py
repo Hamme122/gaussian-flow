@@ -48,7 +48,6 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
 
     gaussians.training_setup(opt)
     if checkpoint:
-        # breakpoint()
         if stage == "coarse" and stage not in checkpoint:
             print("start from fine stage, skip coarse stage.")
             # process is in the coarse stage, but start from fine stage
@@ -71,7 +70,7 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
     
     progress_bar = tqdm(range(first_iter, final_iter), desc="Training progress")
     first_iter += 1
-    # lpips_model = lpips.LPIPS(net="alex").cuda()
+
     video_cams = scene.getVideoCameras()
     test_cams = scene.getTestCameras()
     train_cams = scene.getTrainCameras()
@@ -96,10 +95,8 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
         loader = iter(viewpoint_stack_loader)
     
     # dynerf, zerostamp_init
-    # breakpoint()
     if stage == "coarse" and opt.zerostamp_init:
         load_in_memory = True
-        # batch_size = 4
         temp_list = get_stamp_list(viewpoint_stack,0)
         viewpoint_stack = temp_list.copy()
     else:
@@ -141,7 +138,7 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
         if iteration % 1000 == 0:
             gaussians.oneupSHdegree()
 
-        # Pick a random Camera
+        # Pick a random Camera, batchsize = 1 
         # dynerf's branch
         if opt.dataloader and not load_in_memory:
             try:
@@ -420,6 +417,8 @@ if __name__ == "__main__":
 
     # All done
     print("\nTraining complete.")
+
+
 
 
 
