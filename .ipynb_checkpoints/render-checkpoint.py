@@ -53,7 +53,7 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
     render_images = []
     gt_list = []
     render_list = []
-
+    # breakpoint()
     print("point nums:",gaussians._xyz.shape[0])
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         if idx == 0:time1 = time()
