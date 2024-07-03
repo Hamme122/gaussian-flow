@@ -714,3 +714,44 @@ class GaussianModel:
         return total_knn_loss
 
 
+    def KNN_loss(self, time, k=5, lambda_val=0.1, max_points=200000, sample_size=800):
+        """
+        Compute the neighborhood consistency loss for a 3D point cloud using Top-k neighbors
+        
+        :param k: Number of neighbors to consider.
+        :param lambda_val: Weighting factor for the loss.
+        :param max_points: Maximum number of points for downsampling. If the number of points exceeds this, they are randomly downsampled.
+        :param sample_size: Number of points to randomly sample for computing the loss.
+        
+        :return: Computed loss value.
+        """
+
+        # Get the deformation vector at time t
+        time = torch.tensor(time).to(self._xyz.device).repeat(self._xyz.shape[0],1)
+        origin_vector = self.dddm_model.trajectory_func(self.dddmpara, time, self._feat_dim)
+        origin_vector_part = torch.cat((origin_vector[:, :3], origin_vector[:, 6:10], origin_vector[:, 11:14]), dim=1)
+        features = origin_vector_part[:, :3].detach() # xyz coordinate
+
+        # Conditionally downsample if points exceed max_points
+        if features.size(0) > max_points:
+            indices = torch.randperm(features.size(0))[:max_points]
+            features = features[indices]
+            origin_vector_part = origin_vector_part[indices]
+
+        # Randomly sample points for which we'll compute the loss
+        indices = torch.randperm(features.size(0))[:sample_size]
+        sample_features = features[indices]
+        sample_origin_vector = origin_vector_part[indices]
+
+        # Compute top-k nearest neighbors directly in PyTorch
+        dists = torch.cdist(sample_features, features)  # Compute pairwise distances
+        _, neighbor_indices_tensor = dists.topk(k, largest=False)  # Get top-k smallest distances
+
+        neighbors = origin_vector_part[neighbor_indices_tensor]  
+
+        differences = sample_origin_vector.unsqueeze(1) - neighbors  
+        knn_loss = torch.norm(differences, dim=2).sum(dim=1)
+
+        normalized_loss = knn_loss.sum() / sample_size
+
+        return lambda_val * normalized_loss

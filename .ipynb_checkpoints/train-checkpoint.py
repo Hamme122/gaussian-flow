@@ -176,9 +176,6 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
         smooth_loss = 0.0
         knnloss = 0
 
-        if iteration == opt.densify_until_iter:
-            indices = gaussians.KNN_loss_indice(time = 0.0, K = 10)
-
         for viewpoint_cam in viewpoint_cams:
             render_pkg = render(viewpoint_cam, gaussians, pipe, background, stage=stage,cam_type=scene.dataset_type)
             image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], render_pkg["visibility_filter"], render_pkg["radii"]
@@ -197,7 +194,7 @@ def scene_reconstruction(dataset, opt, hyper, pipe, testing_iterations, saving_i
             # print(llooss)
             smooth_loss += llooss 
             if iteration >= opt.densify_until_iter:
-                knnloss += gaussians.KNN_loss(viewpoint_cam.time, indices)
+                knnloss += gaussians.KNN_loss(viewpoint_cam.time, k = 5)
 
         knnloss /= len(viewpoint_cams)
         smooth_loss /= len(viewpoint_cams)

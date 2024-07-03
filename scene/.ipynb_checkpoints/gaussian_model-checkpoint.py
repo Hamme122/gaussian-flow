@@ -26,6 +26,8 @@ from utils.general_utils import strip_symmetric, build_scaling_rotation
 from scene.deformation import deform_network
 from scene.regulation import compute_plane_smoothness
 from polyfourier import DDDMModel
+from sklearn.neighbors import NearestNeighbors
+
 
 class GaussianModel:
 
@@ -169,9 +171,9 @@ class GaussianModel:
         # For gaussian-flow
         self.dddmpara = nn.Parameter(torch.empty((self.get_xyz.shape[0], self._feat_dim, self._output_dim, 3), 
                                                  device='cuda', requires_grad=True))
-        nn.init.uniform_(self.dddmpara, a=-1.0, b=1.0)
+        # nn.init.uniform_(self.dddmpara, a=-1.0, b=1.0)
         # nn.init.xavier_uniform_(self.dddmpara)
-        # nn.init.kaiming_normal_(self.dddmpara)
+        nn.init.kaiming_normal_(self.dddmpara)
         self._timescaling = nn.Parameter(torch.zeros((self.get_xyz.shape[0], 2), device='cuda', requires_grad=True))
         self.timeframe = time_line
 
@@ -644,9 +646,7 @@ class GaussianModel:
     def compute_regulation(self, time_smoothness_weight, l1_time_planes_weight, plane_tv_weight):
         return plane_tv_weight * self._plane_regulation() + time_smoothness_weight * self._time_regulation() + l1_time_planes_weight * self._l1_regulation()
 
-
     def compute_time_smooth_loss(self, time):
-
         
         means3D = torch.zeros_like(self._xyz)
         scales = torch.zeros_like(self._scaling)
@@ -668,7 +668,7 @@ class GaussianModel:
 
         norm_diff = torch.norm(origin_vector - final_vector, p=2)
         
-        return  norm_diff
+        return norm_diff
     
     def compute_time_smooth_loss2(self, time):
 
@@ -679,7 +679,79 @@ class GaussianModel:
         origin_vector_part = torch.cat((origin_vector[:, :3], origin_vector[:, 6:10], origin_vector[:, 11:14]), dim=1)
         final_vector_part = torch.cat((final_vector[:, :3], final_vector[:, 6:10], final_vector[:, 11:14]), dim=1)
     
-        row_wise_diff = torch.norm(origin_vector_part - final_vector_part, p=2, dim=1)
-        norm_diff = torch.mean(row_wise_diff)
+        norm_diff = torch.norm(origin_vector_part - final_vector_part, p=2)
         
         return norm_diff
+
+
+    def KNN_loss_indice(self, time, K = 10):
+
+        time = torch.tensor(time).to(self._xyz.device).repeat(self._xyz.shape[0],1)
+        origin_vector = self.dddm_model.trajectory_func(self.dddmpara, time, self._feat_dim)
+        origin_vector_part = torch.cat((origin_vector[:, :3], origin_vector[:, 6:10], origin_vector[:, 11:14]), dim=1)
+ 
+        xyz_coordinates = origin_vector_part[:, :3].cpu().detach().numpy()
+        K = 10
+        nbrs = NearestNeighbors(n_neighbors=K + 1, algorithm='auto').fit(xyz_coordinates)
+        distances, indices = nbrs.kneighbors(xyz_coordinates)
+        indices = indices[:, 1:]
+        
+        return indices
+    
+    def KNN_loss(self, time, indices):
+
+        time = torch.tensor(time).to(self._xyz.device).repeat(self._xyz.shape[0],1)
+        origin_vector = self.dddm_model.trajectory_func(self.dddmpara, time, self._feat_dim)
+        origin_vector_part = torch.cat((origin_vector[:, :3], origin_vector[:, 6:10], origin_vector[:, 11:14]), dim=1)
+        neighbors = origin_vector_part[indices]  
+
+        differences = origin_vector_part.unsqueeze(1) - neighbors  
+
+        knn_loss = torch.norm(differences, dim=2).sum(dim=1)
+
+        total_knn_loss = knn_loss.sum() / origin_vector_part.shape[0]
+
+        return total_knn_loss
+
+
+    def KNN_loss(self, time, k=5, lambda_val=0.1, max_points=200000, sample_size=800):
+        """
+        Compute the neighborhood consistency loss for a 3D point cloud using Top-k neighbors
+        
+        :param k: Number of neighbors to consider.
+        :param lambda_val: Weighting factor for the loss.
+        :param max_points: Maximum number of points for downsampling. If the number of points exceeds this, they are randomly downsampled.
+        :param sample_size: Number of points to randomly sample for computing the loss.
+        
+        :return: Computed loss value.
+        """
+
+        # Get the deformation vector at time t
+        time = torch.tensor(time).to(self._xyz.device).repeat(self._xyz.shape[0],1)
+        origin_vector = self.dddm_model.trajectory_func(self.dddmpara, time, self._feat_dim)
+        origin_vector_part = torch.cat((origin_vector[:, :3], origin_vector[:, 6:10], origin_vector[:, 11:14]), dim=1)
+        features = origin_vector_part[:, :3].detach() # xyz coordinate
+
+        # Conditionally downsample if points exceed max_points
+        if features.size(0) > max_points:
+            indices = torch.randperm(features.size(0))[:max_points]
+            features = features[indices]
+            origin_vector_part = origin_vector_part[indices]
+
+        # Randomly sample points for which we'll compute the loss
+        indices = torch.randperm(features.size(0))[:sample_size]
+        sample_features = features[indices]
+        sample_origin_vector = origin_vector_part[indices]
+
+        # Compute top-k nearest neighbors directly in PyTorch
+        dists = torch.cdist(sample_features, features)  # Compute pairwise distances
+        _, neighbor_indices_tensor = dists.topk(k, largest=False)  # Get top-k smallest distances
+
+        neighbors = origin_vector_part[neighbor_indices_tensor]  
+
+        differences = sample_origin_vector.unsqueeze(1) - neighbors  
+        knn_loss = torch.norm(differences, dim=2).sum(dim=1)
+
+        normalized_loss = knn_loss.sum() / sample_size
+
+        return lambda_val * normalized_loss
