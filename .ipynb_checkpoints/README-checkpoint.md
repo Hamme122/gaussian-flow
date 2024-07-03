@@ -1,7 +1,5 @@
 # 4D Gaussian Splatting for Real-Time Dynamic Scene Rendering
 
-[TOC]
-
 ## 1. Introduction
 
 This repository is an unofficial implementation of "[Gaussian-Flow: 4D Reconstruction with Dynamic 3D Gaussian Particle](https://arxiv.org/abs/2312.03431)", building on top of the [4D Gaussian Splatting for Real-Time Dynamic Scene Rendering](https://github.com/hustvl/4DGaussians) framework.
@@ -23,7 +21,7 @@ We test the model on four datasets:
 | PSNR           | dynerf/flame steak | dynerf/flame salmon | hypernerf/broom | hypernerf/chicken |
 | -------------- | ------------------ | ------------------- | --------------- | ----------------- |
 | Paper(30k)     | blank              | blank               | 22.5            | 29.4              |
-| This repo(30k) | 32.2               |                     | 21.8            | 26.3              |
+| This repo(30k) | 32.2               | 28.6                | 21.8            | 26.3              |
 
 We write a more detailed analysis of the results in part 9 Reproduction note.
 
