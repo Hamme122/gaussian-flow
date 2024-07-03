@@ -102,7 +102,7 @@ python scripts/downsample_point.py data/hypernerf/virg/broom2/colmap/dense/works
 python train.py -s  data/hypernerf/virg/broom2/ --port 6017 --expname "hypernerf/broom2" --configs arguments/hypernerf/broom2.py 
 ```
 
-## 8. Citation
+## 6. Citation
 
 If you find this repository/work helpful in your research, welcome to cite these papers and give a ⭐.
 
@@ -124,7 +124,7 @@ If you find this repository/work helpful in your research, welcome to cite these
 
 
 
-## 9. Reproduction notes
+## 7. Reproduction notes
 
 > Here are some notes and issues I took during the repro process:
 
@@ -136,9 +136,9 @@ If you find this repository/work helpful in your research, welcome to cite these
 
 ![Gaussian splatting](https://lzztypora.oss-cn-beijing.aliyuncs.com/202407022154724.png)
 
-### 9.1 The role of each component
+### 7.1 The role of each component
 
-#### 9.1.1 Polyfourier
+#### 7.1.1 Polyfourier
 
 Based on the 4DGaussian framework, we changed the part of the deformation to be implemented with pooly_fourier. After changing only this section, we have listed the results below.
 
@@ -157,7 +157,7 @@ We followed the 4DGaussian practice of initializing 3000 times with 3DGaussian a
 
 From the results, we can see that the addition of poly_fourier has a slight effect, but it is not very good
 
-#### 9.1.2 Adaptive Timestemp Scaling
+#### 7.1.2 Adaptive Timestemp Scaling
 
 After completing this part, the model has been significantly improved.
 
@@ -173,7 +173,7 @@ Then, after adding the timestemp scaling, we changed the previous poly_fourier t
 | [ITER 14000] Evaluating test:                                | L1 0.015813744681722978 PSNR 32.75542158239028 [03/07 12:49:49] | L1 0.017934783197501126 PSNR 31.938018013449277 [03/07 13:37:28] | L1 0.017712286837837276 PSNR 31.958147609935086 [03/07 13:58:10] | L1 0.017179548411684877 PSNR 32.08180719263413 [03/07 20:11:37] | PSNR: 32.2 |
 | [ITER 14000] Evaluating train:                               | L1 0.010392635622445275 PSNR 34.162504757151886 [03/07 12:49:49] | L1 0.011557015426018658 PSNR 33.56630123362822 [03/07 13:37:28] | L1 0.010980667491607806 PSNR 33.88952838673311 [03/07 13:58:10] | L1 0.011120671406388283 PSNR 33.69730983060949 [03/07 20:11:37] | PSNR: 33.9 |
 
-#### 9.1.3 Loss
+#### 7.1.3 Loss
 
 1. Time smooth loss:
 
@@ -198,7 +198,7 @@ Then, after adding the timestemp scaling, we changed the previous poly_fourier t
    | [ITER 28000] Evaluating test:   | L1 0.01742225107462967 PSNR 31.908257316140567 [03/07 22:56:19] | L1 0.017317032222362125 PSNR 32.121478249044976 [03/07 23:54:04] |
    | [ITER 28000] Evaluating train:  | L1 0.01062560300616657 PSNR 34.034979651956 [03/07 22:56:20] | L1 0.010371644378584973 PSNR 34.14780381146599 [03/07 23:54:04] |
 
-#### 9.1.4 Summary
+### 7.2 Summary
 
 1. In this implementation, we found that using Adaptive Timestemp Scaling is a very effective way to solve the problem of normalization of time in 4D Gaussian. 
 2. In addition, the initialization method also has a great impact on the results
