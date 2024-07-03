@@ -79,7 +79,7 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         # means3D_deform, scales_deform, rotations_deform, opacity_deform = pc._deformation(means3D[deformation_point], scales[deformation_point], 
         #                                                                  rotations[deformation_point], opacity[deformation_point],
         #                                                                  time[deformation_point])
-        #means3D_final, scales_final, rotations_final, opacity_final, shs_final = pc._deformation(means3D, scales, 
+        # means3D_final, scales_final, rotations_final, opacity_final, shs_final = pc._deformation(means3D, scales, 
         #                                                          rotations, opacity, shs,
         #                                                          time)
         time_scaling = torch.clamp(torch.exp(pc._timescaling[:, 0]).view(-1, 1) * time + pc._timescaling[:, 1].view(-1, 1), min=0.01)

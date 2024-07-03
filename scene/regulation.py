@@ -27,7 +27,6 @@ def compute_plane_smoothness(t):
     # Take the L2 norm of the result
     return torch.square(second_difference).mean()
 
-
 class Regularizer():
     def __init__(self, reg_type, initialization):
         self.reg_type = reg_type
